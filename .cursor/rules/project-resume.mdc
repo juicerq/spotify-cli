@@ -1,0 +1,16 @@
+---
+description: understand the codebase
+globs: 
+alwaysApply: false
+---
+This project will be a spotify managager CLI. It will have features that isn't possible to do on spotify, simple example: like all songs of a playlist.
+
+# Rules
+1. Use Bun instead of NPM
+2. Make all code concise, performatic and maintainable with high quality typescript safety
+
+
+# Roadmap
+
+[ ] -> Create Oauth with spotify, save the access_token and refresh_token.
+[ ] -> Feature: List all user playlist
