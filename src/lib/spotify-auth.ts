@@ -5,6 +5,40 @@ import path from "node:path";
 import open from "open";
 import type SpotifyWebApi from "spotify-web-api-node";
 
+type ValidScopes =
+	| "ugc-image-upload"
+	| "user-read-playback-state"
+	| "user-modify-playback-state"
+	| "user-read-currently-playing"
+	| "app-remote-control"
+	| "streaming"
+	| "playlist-read-private"
+	| "playlist-read-collaborative"
+	| "playlist-modify-private"
+	| "playlist-modify-public"
+	| "user-follow-modify"
+	| "user-follow-read"
+	| "user-read-playback-position"
+	| "user-top-read"
+	| "user-read-recently-played"
+	| "user-library-modify"
+	| "user-library-read"
+	| "user-read-email"
+	| "user-read-private"
+	| "user-soa-link"
+	| "user-soa-unlink"
+	| "soa-manage-entitlements"
+	| "soa-manage-partner"
+	| "soa-create-partner";
+
+const scopes: ValidScopes[] = [
+	"user-read-private",
+	"user-read-email",
+	"playlist-read-private",
+	"playlist-modify-private",
+	"playlist-modify-public",
+];
+
 export class SpotifyAuth {
 	command: Command;
 	spotifyApi: SpotifyWebApi;
@@ -15,11 +49,9 @@ export class SpotifyAuth {
 	}
 
 	async run() {
-		const scopes = [
-			"user-read-private",
-			"user-read-email",
-			"playlist-read-private",
-		];
+		this.command.log(
+			`Authenticating with Spotify (Scopes: ${scopes.join(", ")})...`,
+		);
 
 		const authorizeURL = this.spotifyApi.createAuthorizeURL(scopes, "state");
 
