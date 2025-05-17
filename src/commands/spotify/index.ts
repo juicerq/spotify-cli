@@ -3,7 +3,7 @@ import { Command } from "@oclif/core";
 import fs from "node:fs";
 import path from "node:path";
 import type SpotifyWebApi from "spotify-web-api-node";
-import { envs } from "../../env.js";
+import { env } from "../../env.js";
 import { type MaybePromise, spotifyApi } from "../../index.js";
 import { SpotifyAuth } from "../../lib/spotify-auth.js";
 import type { Commands } from "../../types/commands.js";
@@ -12,10 +12,10 @@ export default class Spotify extends Command {
 	static description = "Interactive command to choose a Spotify feature";
 	spotifyApi: SpotifyWebApi = spotifyApi;
 
-	async run() {
+	async run(): Promise<void> {
 		this.log("Welcome to the Spotify CLI!");
 
-		let access_token = envs.ACCESS_TOKEN;
+		let access_token = env.ACCESS_TOKEN;
 
 		if (!access_token) {
 			const spotifyAuth = await new SpotifyAuth().run(this, spotifyApi);

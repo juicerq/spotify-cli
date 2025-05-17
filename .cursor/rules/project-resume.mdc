@@ -1,16 +1,30 @@
 ---
-description: understand the codebase
-globs: 
-alwaysApply: false
+description: Spotify CLI Manager
+globs: "**/*.ts"
+alwaysApply: true
 ---
-This project will be a spotify managager CLI. It will have features that isn't possible to do on spotify, simple example: like all songs of a playlist.
+# Project Overview
+This project is a Spotify Manager CLI built with oclif and TypeScript. It provides features not available in the official Spotify app, such as liking all songs in a playlist at once, batch operations, and advanced playlist management.
 
-# Rules
-1. Use Bun instead of NPM
-2. Make all code concise, performatic and maintainable with high quality typescript safety
+# Architecture
+- Built with oclif CLI framework
+- Uses spotify-web-api-node for API interactions
+- Follows command pattern with nested subcommands (spotify:playlists, spotify:songs)
+- OAuth authentication with local callback server
+- Environment variables for credentials storage
 
+# Code Standards
+1. Use Bun instead of NPM for all operations
+2. Write concise, performant code with strong TypeScript typing
+3. Follow ES module syntax (import/export)
+4. Use async/await for all asynchronous operations
+5. Implement proper error handling with descriptive messages
+6. Maintain consistent naming: camelCase for variables, PascalCase for classes
 
 # Roadmap
-
-[ ] -> Create Oauth with spotify, save the access_token and refresh_token.
-[ ] -> Feature: List all user playlist
+- [x] Set up oclif command structure
+- [x] Create OAuth with Spotify, save access_token and refresh_token
+- [ ] Feature: List all user playlists
+- [ ] Feature: Batch operations on songs (like/unlike)
+- [ ] Feature: Advanced playlist management
+- [ ] Feature: Playlist backup and restoration

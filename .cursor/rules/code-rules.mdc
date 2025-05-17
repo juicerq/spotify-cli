@@ -1,0 +1,6 @@
+---
+description: regras de código. leia sempre que for escrever código
+globs: 
+alwaysApply: false
+---
+1. Nunca escreva comentários explicando o seu código e nunca delete meus comentários

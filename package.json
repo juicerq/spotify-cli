@@ -14,8 +14,10 @@
 		"@oclif/plugin-help": "^6",
 		"@oclif/plugin-plugins": "^5",
 		"@types/spotify-web-api-node": "^5.0.11",
+		"dotenv": "^16.5.0",
 		"open": "^10.1.0",
-		"spotify-web-api-node": "^5.0.2"
+		"spotify-web-api-node": "^5.0.2",
+		"zod": "^3.24.4"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1",
@@ -65,7 +67,8 @@
 		"posttest": "npm run lint",
 		"prepack": "oclif manifest && oclif readme",
 		"test": "mocha --forbid-only \"test/**/*.test.ts\"",
-		"version": "oclif readme && git add README.md"
+		"version": "oclif readme && git add README.md",
+		"dev": "npm run generate-types && shx rm -rf dist && tsc -b && ./bin/dev.js spotify"
 	},
 	"types": "dist/index.d.ts"
 }
