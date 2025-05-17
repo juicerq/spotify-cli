@@ -1,7 +1,5 @@
 import { select } from "@inquirer/prompts";
 import { Command } from "@oclif/core";
-import fs from "node:fs";
-import path from "node:path";
 import type SpotifyWebApi from "spotify-web-api-node";
 import { env } from "../../env.js";
 import { type MaybePromise, spotifyApi } from "../../index.js";
@@ -18,13 +16,9 @@ export default class Spotify extends Command {
 		let access_token = env.ACCESS_TOKEN;
 
 		if (!access_token) {
-			const spotifyAuth = await new SpotifyAuth().run(this, spotifyApi);
+			const authClient = await new SpotifyAuth(this, spotifyApi).run();
 
-			access_token = spotifyAuth.access_token;
-
-			await this.saveTokens(spotifyAuth);
-
-			this.spotifyApi.setAccessToken(access_token);
+			access_token = authClient.access_token;
 		}
 
 		this.spotifyApi.setAccessToken(access_token);
@@ -59,59 +53,5 @@ export default class Spotify extends Command {
 		};
 
 		await commandsActions[commandChoice]();
-	}
-
-	private runCommand(command: Commands) {
-		this.config.runCommand(command);
-	}
-
-	private async reset() {
-		this.runCommand("spotify");
-	}
-
-	private async saveTokens({
-		access_token,
-		refresh_token,
-		expires_in,
-	}: {
-		access_token: string;
-		refresh_token: string;
-		expires_in: number;
-	}) {
-		// Save access token to environment variables
-		this.log("Saving access token to environment...");
-
-		// Save tokens to .env file for persistence across sessions
-		const envFilePath = path.resolve(process.cwd(), ".env");
-
-		try {
-			// Read existing .env file content
-			let envContent = "";
-			try {
-				envContent = fs.readFileSync(envFilePath, "utf8");
-			} catch (error) {
-				// File might not exist yet, which is fine
-			}
-
-			// Update or add the token variables
-			const updateEnvVar = (name: string, value: string) => {
-				const regex = new RegExp(`^${name}=.*`, "m");
-				if (regex.test(envContent)) {
-					envContent = envContent.replace(regex, `${name}=${value}`);
-				} else {
-					envContent += `\n${name}=${value}`;
-				}
-			};
-
-			updateEnvVar("ACCESS_TOKEN", access_token);
-			if (refresh_token) updateEnvVar("REFRESH_TOKEN", refresh_token);
-			if (expires_in) updateEnvVar("TOKEN_EXPIRES_IN", expires_in.toString());
-
-			// Write back to .env file
-			fs.writeFileSync(envFilePath, envContent.trim());
-			this.log("Access token saved successfully to .env file!");
-		} catch (error) {
-			this.error(`Failed to save tokens to .env file: ${error}`);
-		}
 	}
 }

@@ -1,23 +1,30 @@
 import type { Command } from "@oclif/core";
+import fs from "node:fs";
 import { createServer } from "node:http";
+import path from "node:path";
 import open from "open";
 import type SpotifyWebApi from "spotify-web-api-node";
 
 export class SpotifyAuth {
-	async run(command: Command, spotifyApi: SpotifyWebApi) {
-		// Create authorization URL
+	command: Command;
+	spotifyApi: SpotifyWebApi;
+
+	constructor(command: Command, spotifyApi: SpotifyWebApi) {
+		this.command = command;
+		this.spotifyApi = spotifyApi;
+	}
+
+	async run() {
 		const scopes = [
 			"user-read-private",
 			"user-read-email",
 			"playlist-read-private",
 		];
 
-		const authorizeURL = spotifyApi.createAuthorizeURL(scopes, "state");
+		const authorizeURL = this.spotifyApi.createAuthorizeURL(scopes, "state");
 
-		// Open browser for authentication
 		await open(authorizeURL);
 
-		// Create server to handle callback
 		const server = createServer();
 
 		const codePromise = new Promise<string>((resolve) => {
@@ -39,11 +46,12 @@ export class SpotifyAuth {
 
 		server.listen(3000);
 
-		command.log("Waiting for authentication...");
+		this.command.log("Waiting for authentication...");
 
-		// Create a loading animation using inquirer-like spinner
 		const loadingChars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
 		let i = 0;
+
 		const loadingInterval = setInterval(() => {
 			process.stdout.write(
 				`\r${loadingChars[i]} Authenticating with Spotify...`,
@@ -51,24 +59,66 @@ export class SpotifyAuth {
 			i = (i + 1) % loadingChars.length;
 		}, 100);
 
-		// Ensure we clean up the interval when authentication completes
 		const cleanup = () => {
 			clearInterval(loadingInterval);
-			process.stdout.write("\r\x1b[K"); // Clear the current line
+			process.stdout.write("\r\x1b[K");
 		};
 
 		codePromise.then(cleanup).catch(cleanup);
 
 		const code = await codePromise;
 
-		// Exchange code for tokens
-		const data = await spotifyApi.authorizationCodeGrant(code);
+		const data = await this.spotifyApi.authorizationCodeGrant(code);
+
+		const { access_token, refresh_token, expires_in } = data.body;
+
+		await this.saveTokens({ access_token, refresh_token, expires_in });
 
 		return {
-			access_token: data.body.access_token,
-			refresh_token: data.body.refresh_token,
-			expires_in: data.body.expires_in,
-			spotifyApi,
+			access_token,
+			refresh_token,
+			expires_in,
 		};
+	}
+
+	private async saveTokens({
+		access_token,
+		refresh_token,
+		expires_in,
+	}: {
+		access_token: string;
+		refresh_token: string;
+		expires_in: number;
+	}) {
+		this.command.log("Saving access token to environment...");
+
+		const envFilePath = path.resolve(process.cwd(), ".env");
+
+		try {
+			let envContent = "";
+
+			try {
+				envContent = fs.readFileSync(envFilePath, "utf8");
+			} catch (error) {}
+
+			const updateEnvVar = (name: string, value: string) => {
+				const regex = new RegExp(`^${name}=.*`, "m");
+				if (regex.test(envContent)) {
+					envContent = envContent.replace(regex, `${name}=${value}`);
+				} else {
+					envContent += `\n${name}=${value}`;
+				}
+			};
+
+			updateEnvVar("ACCESS_TOKEN", access_token);
+
+			if (refresh_token) updateEnvVar("REFRESH_TOKEN", refresh_token);
+			if (expires_in) updateEnvVar("TOKEN_EXPIRES_IN", expires_in.toString());
+
+			fs.writeFileSync(envFilePath, envContent.trim());
+			this.command.log("Access token saved successfully to .env file!");
+		} catch (error) {
+			this.command.error(`Failed to save tokens to .env file: ${error}`);
+		}
 	}
 }

@@ -1,1 +1,1 @@
-{"root":["./src/env.ts","./src/index.ts","./src/commands/spotify/index.ts","./src/commands/spotify/playlists/index.ts","./src/commands/spotify/songs/index.ts","./src/lib/spotify-auth.ts","./src/types/commands.ts"],"version":"5.8.2"}
+{"root":["./src/env.ts","./src/index.ts","./src/commands/spotify/index.ts","./src/commands/spotify/playlists/index.ts","./src/commands/spotify/songs/index.ts","./src/lib/spotify-auth.ts","./src/lib/utils.ts","./src/types/commands.ts"],"version":"5.8.2"}

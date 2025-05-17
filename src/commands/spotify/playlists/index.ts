@@ -1,5 +1,6 @@
 import { checkbox, select } from "@inquirer/prompts";
 import type SpotifyWebApi from "spotify-web-api-node";
+import { sleep } from "../../../lib/utils.js";
 import Spotify from "../index.js";
 
 export type Playlist = Awaited<
@@ -16,6 +17,10 @@ export default class Playlists extends Spotify {
 	static description = "Manage and view your Spotify playlists";
 	playlists: Playlist[] = [];
 	tracksToPlaylistMap: Record<string, TrackObjectFull[]> = {};
+
+	async rerun() {
+		this.run();
+	}
 
 	async run() {
 		const playlists = await this.spotifyApi.getUserPlaylists();
@@ -38,12 +43,14 @@ export default class Playlists extends Spotify {
 			pageSize: 30,
 		});
 
-		if (selectedPlaylistIds.length === 0) {
-			this.log("No playlists selected!");
-			return;
-		}
+		const canContinue = await this.checkHasPlaylists(selectedPlaylistIds);
 
-		// Action menu for selected playlists
+		if (!canContinue) return this.rerun();
+
+		await this.handleActionStep(selectedPlaylistIds);
+	}
+
+	private async handleActionStep(selectedPlaylistIds: string[]) {
 		const action = await select({
 			message: "What would you like to do with the selected playlists?",
 			choices: [
@@ -74,6 +81,18 @@ export default class Playlists extends Spotify {
 				this.log("Operation canceled");
 				break;
 		}
+	}
+
+	private async checkHasPlaylists(playlistsIds: string[]) {
+		if (playlistsIds.length === 0) {
+			this.log("No playlists selected!");
+
+			await sleep();
+
+			return false;
+		}
+
+		return true;
 	}
 
 	private async getPlaylistsTracks(playlistIds: string[]) {
