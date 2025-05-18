@@ -88,17 +88,71 @@ export default class Playlists extends Spotify {
 			] as const,
 		});
 
+		const wantsToExcludeTracks = await select({
+			message: "Do you want to exclude any tracks?",
+			choices: [
+				{
+					name: "Yes",
+					value: "yes",
+				},
+				{
+					name: "No",
+					value: "no",
+				},
+			] as const,
+		});
+
+		let tracksToExcludeIds: string[] = [];
+
+		if (wantsToExcludeTracks === "yes") {
+			tracksToExcludeIds = await this.excludeTracksStep(selectedPlaylistIds);
+		}
+
 		switch (mergeAction) {
 			case "createNewPlaylist":
-				await this.createNewPlaylistStep(selectedPlaylistIds);
+				await this.createNewPlaylistStep(
+					selectedPlaylistIds,
+					tracksToExcludeIds,
+				);
 				break;
 			case "addToExistingPlaylist":
-				await this.addToExistingPlaylistStep(selectedPlaylistIds);
+				await this.addToExistingPlaylistStep(
+					selectedPlaylistIds,
+					tracksToExcludeIds,
+				);
 				break;
 		}
 	}
 
-	private async addToExistingPlaylistStep(selectedPlaylistIds: string[]) {
+	private async excludeTracksStep(selectedPlaylistIds: string[]) {
+		const playlistsTracks = await Promise.all(
+			selectedPlaylistIds.flatMap((playlistId) =>
+				this.spotifyApi.getPlaylistTracks(playlistId),
+			),
+		);
+
+		const allTracks = playlistsTracks.flatMap((p) =>
+			p.body.items.map((t) => t.track),
+		);
+
+		const tracksToExcludeIds = await checkbox({
+			message: "Select the tracks to exclude",
+			choices: allTracks
+				.filter((t) => !!t)
+				.map((t) => ({
+					name: `${t.name} - ${t.artists.map((a) => a.name).join(", ")}`,
+					value: t.id,
+				})),
+			pageSize: 10,
+		});
+
+		return tracksToExcludeIds;
+	}
+
+	private async addToExistingPlaylistStep(
+		selectedPlaylistIds: string[],
+		tracksToExcludeIds: string[],
+	) {
 		const existingPlaylist = await select({
 			message: "Select the playlist to add the tracks to",
 			choices: this.playlists.map((p) => ({
@@ -110,10 +164,14 @@ export default class Playlists extends Spotify {
 		await this.addTracksToPlaylists({
 			playlistIds: selectedPlaylistIds,
 			targetPlaylistId: existingPlaylist,
+			tracksToExcludeIds,
 		});
 	}
 
-	private async createNewPlaylistStep(selectedPlaylistIds: string[]) {
+	private async createNewPlaylistStep(
+		selectedPlaylistIds: string[],
+		tracksToExcludeIds: string[],
+	) {
 		const newPlaylistName = await input({
 			message: "Enter the name of the new playlist",
 		});
@@ -143,6 +201,7 @@ export default class Playlists extends Spotify {
 		await this.addTracksToPlaylists({
 			playlistIds: selectedPlaylistIds,
 			targetPlaylistId: newPlaylist.id,
+			tracksToExcludeIds,
 		});
 
 		this.log("Successfully merged playlists!");
@@ -155,6 +214,7 @@ export default class Playlists extends Spotify {
 	private async addTracksToPlaylists(data: {
 		playlistIds: string[];
 		targetPlaylistId: string;
+		tracksToExcludeIds: string[];
 	}) {
 		const targetPlaylist = this.getPlaylist(data.targetPlaylistId);
 
@@ -174,9 +234,13 @@ export default class Playlists extends Spotify {
 			const tracksResponse =
 				await this.spotifyApi.getPlaylistTracks(playlistId);
 
-			const tracks = tracksResponse.body.items
+			let tracks = tracksResponse.body.items
 				.map((item) => item.track)
 				.filter((t) => !!t);
+
+			if (data.tracksToExcludeIds.length > 0) {
+				tracks = tracks.filter((t) => !data.tracksToExcludeIds.includes(t.id));
+			}
 
 			const tracksUris = tracks.map((t) => t.uri);
 
@@ -218,20 +282,18 @@ export default class Playlists extends Spotify {
 			const tracksResponse =
 				await this.spotifyApi.getPlaylistTracks(playlistId);
 
-			const tracks = tracksResponse.body.items;
+			const tracks = tracksResponse.body.items.map((item) => item.track);
 
 			if (tracks.length === 0) {
 				this.log("No tracks found in this playlist!");
 				continue;
 			}
 
-			for (let index = 0; index < tracks.length; index++) {
-				const item = tracks[index];
+			for (const [index, track] of tracks.entries()) {
+				if (!track) continue;
 
-				if (item.track) {
-					const artists = item.track.artists.map((a) => a.name).join(", ");
-					this.log(`${index + 1}. ${item.track.name} - ${artists}`);
-				}
+				const artists = track.artists.map((artist) => artist.name).join(", ");
+				this.log(`${index + 1}. ${track.name} - ${artists}`);
 			}
 		}
 	}

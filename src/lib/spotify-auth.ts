@@ -113,13 +113,27 @@ export class SpotifyAuth {
 		};
 	}
 
+	async refreshAccessToken() {
+		const response = await this.spotifyApi.refreshAccessToken();
+
+		const { access_token, expires_in, refresh_token } = response.body;
+
+		this.spotifyApi.setAccessToken(access_token);
+
+		await this.saveTokens({ access_token, refresh_token, expires_in });
+
+		return {
+			access_token,
+		};
+	}
+
 	private async saveTokens({
 		access_token,
 		refresh_token,
 		expires_in,
 	}: {
 		access_token: string;
-		refresh_token: string;
+		refresh_token: string | undefined;
 		expires_in: number;
 	}) {
 		this.command.log("Saving access token to environment...");
