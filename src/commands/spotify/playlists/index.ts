@@ -205,10 +205,6 @@ export default class Playlists extends Spotify {
 		});
 
 		this.log("Successfully merged playlists!");
-
-		await sleep();
-
-		this.backToStart();
 	}
 
 	private async addTracksToPlaylists(data: {
