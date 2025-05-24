@@ -1,5 +1,7 @@
-import { checkbox, input, select } from "@inquirer/prompts";
+import { checkbox, select } from "@inquirer/prompts";
 import type SpotifyWebApi from "spotify-web-api-node";
+import { PlaylistOperations } from "../../../lib/playlists/playlist-operations.js";
+import { TrackOperations } from "../../../lib/playlists/track-operations.js";
 import { sleep } from "../../../lib/utils.js";
 import Spotify from "../index.js";
 
@@ -16,8 +18,21 @@ export type TrackInfo = TrackObjectFull["track"];
 export default class Playlists extends Spotify {
 	static description = "Manage and view your Spotify playlists";
 	playlists: Playlist[] = [];
+	private trackOperations!: TrackOperations;
+	private playlistOperations!: PlaylistOperations;
 
 	async run() {
+		// Initialize services
+		this.trackOperations = new TrackOperations(
+			this.spotifyApi,
+			this.log.bind(this),
+		);
+		this.playlistOperations = new PlaylistOperations(
+			this.spotifyApi,
+			this.trackOperations,
+			this.log.bind(this),
+		);
+
 		const playlists = await this.spotifyApi.getUserPlaylists();
 
 		this.playlists = playlists.body.items;
@@ -54,6 +69,14 @@ export default class Playlists extends Spotify {
 					value: "mergePlaylists",
 				},
 				{
+					name: "Like all songs",
+					value: "likeAllSongs",
+				},
+				{
+					name: "Dislike all songs",
+					value: "dislikeAllSongs",
+				},
+				{
 					name: "Cancel",
 					value: "cancel",
 				},
@@ -62,10 +85,27 @@ export default class Playlists extends Spotify {
 
 		switch (action) {
 			case "showTracks":
-				await this.showPlaylistTracks(selectedPlaylistIds);
+				await this.trackOperations.displayPlaylistTracks(
+					selectedPlaylistIds,
+					this.getPlaylistName.bind(this),
+				);
 				break;
 			case "mergePlaylists":
 				await this.mergePlaylistsStep(selectedPlaylistIds);
+				break;
+			case "likeAllSongs":
+				await this.trackOperations.processLikedSongs(
+					selectedPlaylistIds,
+					"add",
+					this.getPlaylistName.bind(this),
+				);
+				break;
+			case "dislikeAllSongs":
+				await this.trackOperations.processLikedSongs(
+					selectedPlaylistIds,
+					"remove",
+					this.getPlaylistName.bind(this),
+				);
 				break;
 			case "cancel":
 				this.log("Operation canceled");
@@ -74,38 +114,15 @@ export default class Playlists extends Spotify {
 	}
 
 	private async mergePlaylistsStep(selectedPlaylistIds: string[]) {
-		const mergeAction = await select({
-			message: "How would you like to merge the playlists?",
-			choices: [
-				{
-					name: "Create a new playlist",
-					value: "createNewPlaylist",
-				},
-				{
-					name: "Add to existing playlist",
-					value: "addToExistingPlaylist",
-				},
-			] as const,
-		});
-
-		const wantsToExcludeTracks = await select({
-			message: "Do you want to exclude any tracks?",
-			choices: [
-				{
-					name: "Yes",
-					value: "yes",
-				},
-				{
-					name: "No",
-					value: "no",
-				},
-			] as const,
-		});
+		const mergeAction = await this.playlistOperations.promptForMergeAction();
+		const wantsToExcludeTracks =
+			await this.playlistOperations.promptForExcludeTracks();
 
 		let tracksToExcludeIds: string[] = [];
 
-		if (wantsToExcludeTracks === "yes") {
-			tracksToExcludeIds = await this.excludeTracksStep(selectedPlaylistIds);
+		if (wantsToExcludeTracks) {
+			tracksToExcludeIds =
+				await this.playlistOperations.excludeTracksStep(selectedPlaylistIds);
 		}
 
 		switch (mergeAction) {
@@ -124,47 +141,18 @@ export default class Playlists extends Spotify {
 		}
 	}
 
-	private async excludeTracksStep(selectedPlaylistIds: string[]) {
-		const playlistsTracks = await Promise.all(
-			selectedPlaylistIds.flatMap((playlistId) =>
-				this.spotifyApi.getPlaylistTracks(playlistId),
-			),
-		);
-
-		const allTracks = playlistsTracks.flatMap((p) =>
-			p.body.items.map((t) => t.track),
-		);
-
-		const tracksToExcludeIds = await checkbox({
-			message: "Select the tracks to exclude",
-			choices: allTracks
-				.filter((t) => !!t)
-				.map((t) => ({
-					name: `${t.name} - ${t.artists.map((a) => a.name).join(", ")}`,
-					value: t.id,
-				})),
-			pageSize: 10,
-		});
-
-		return tracksToExcludeIds;
-	}
-
 	private async addToExistingPlaylistStep(
 		selectedPlaylistIds: string[],
 		tracksToExcludeIds: string[],
 	) {
-		const existingPlaylist = await select({
-			message: "Select the playlist to add the tracks to",
-			choices: this.playlists.map((p) => ({
-				name: p.name,
-				value: p.id,
-			})),
-		});
+		const existingPlaylistId =
+			await this.playlistOperations.promptForExistingPlaylist(this.playlists);
 
-		await this.addTracksToPlaylists({
+		await this.playlistOperations.addTracksToPlaylist({
 			playlistIds: selectedPlaylistIds,
-			targetPlaylistId: existingPlaylist,
+			targetPlaylistId: existingPlaylistId,
 			tracksToExcludeIds,
+			getPlaylistName: this.getPlaylistName.bind(this),
 		});
 	}
 
@@ -172,83 +160,24 @@ export default class Playlists extends Spotify {
 		selectedPlaylistIds: string[],
 		tracksToExcludeIds: string[],
 	) {
-		const newPlaylistName = await input({
-			message: "Enter the name of the new playlist",
-		});
+		const { name, isPublic } =
+			await this.playlistOperations.promptForNewPlaylistDetails();
 
-		const viewStatus = await select({
-			message: "View status of the new playlist",
-			choices: [
-				{
-					name: "Public",
-					value: "public",
-				},
-				{
-					name: "Private",
-					value: "private",
-				},
-			] as const,
-		});
-
-		const newPlaylist = await this.spotifyApi
-			.createPlaylist(newPlaylistName, {
-				public: viewStatus === "public",
-			})
-			.then((res) => res.body);
+		const newPlaylist = await this.playlistOperations.createNewPlaylist(
+			name,
+			isPublic,
+		);
 
 		this.playlists.push(newPlaylist);
 
-		await this.addTracksToPlaylists({
+		await this.playlistOperations.addTracksToPlaylist({
 			playlistIds: selectedPlaylistIds,
 			targetPlaylistId: newPlaylist.id,
 			tracksToExcludeIds,
+			getPlaylistName: this.getPlaylistName.bind(this),
 		});
 
 		this.log("Successfully merged playlists!");
-	}
-
-	private async addTracksToPlaylists(data: {
-		playlistIds: string[];
-		targetPlaylistId: string;
-		tracksToExcludeIds: string[];
-	}) {
-		const targetPlaylist = this.getPlaylist(data.targetPlaylistId);
-
-		if (!targetPlaylist) {
-			this.log(`Playlist ${data.targetPlaylistId} not found!`);
-			return this.backToStart();
-		}
-
-		for (const playlistId of data.playlistIds) {
-			const playlist = this.getPlaylist(playlistId);
-
-			if (!playlist) {
-				this.log(`Playlist ${playlistId} not found!`);
-				continue;
-			}
-
-			const tracksResponse =
-				await this.spotifyApi.getPlaylistTracks(playlistId);
-
-			let tracks = tracksResponse.body.items
-				.map((item) => item.track)
-				.filter((t) => !!t);
-
-			if (data.tracksToExcludeIds.length > 0) {
-				tracks = tracks.filter((t) => !data.tracksToExcludeIds.includes(t.id));
-			}
-
-			const tracksUris = tracks.map((t) => t.uri);
-
-			await this.spotifyApi.addTracksToPlaylist(
-				data.targetPlaylistId,
-				tracksUris,
-			);
-
-			this.log(
-				`Added ${tracksUris.length} from ${playlist.name} to ${targetPlaylist.name}`,
-			);
-		}
 	}
 
 	private async checkSelectedPlaylists(playlistsIds: string[]) {
@@ -261,36 +190,7 @@ export default class Playlists extends Spotify {
 		}
 	}
 
-	private getPlaylist(playlistId: string) {
-		return this.playlists.find((p) => p.id === playlistId);
-	}
-
-	async showPlaylistTracks(playlistIds: string[]): Promise<void> {
-		this.log("Fetching tracks from selected playlists...");
-
-		for (const playlistId of playlistIds) {
-			const playlist = this.getPlaylist(playlistId);
-
-			if (!playlist) continue;
-
-			this.log(`\n=== Tracks in ${playlist.name} ===`);
-
-			const tracksResponse =
-				await this.spotifyApi.getPlaylistTracks(playlistId);
-
-			const tracks = tracksResponse.body.items.map((item) => item.track);
-
-			if (tracks.length === 0) {
-				this.log("No tracks found in this playlist!");
-				continue;
-			}
-
-			for (const [index, track] of tracks.entries()) {
-				if (!track) continue;
-
-				const artists = track.artists.map((artist) => artist.name).join(", ");
-				this.log(`${index + 1}. ${track.name} - ${artists}`);
-			}
-		}
+	private getPlaylistName(playlistId: string): string | undefined {
+		return this.playlists.find((p) => p.id === playlistId)?.name;
 	}
 }

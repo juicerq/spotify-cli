@@ -15,16 +15,7 @@ This project is a Spotify Manager CLI built with oclif and TypeScript. It provid
 
 # Code Standards
 1. Use Bun instead of NPM for all operations
-2. Write concise, performant code with strong TypeScript typing
+2. Write concise, performant and focused on maintanability code with strong TypeScript typing
 3. Follow ES module syntax (import/export)
-4. Use async/await for all asynchronous operations
-5. Implement proper error handling with descriptive messages
+5. Never write try catch
 6. Maintain consistent naming: camelCase for variables, PascalCase for classes
-
-# Roadmap
-- [x] Set up oclif command structure
-- [x] Create OAuth with Spotify, save access_token and refresh_token
-- [ ] Feature: List all user playlists
-- [ ] Feature: Batch operations on songs (like/unlike)
-- [ ] Feature: Advanced playlist management
-- [ ] Feature: Playlist backup and restoration
