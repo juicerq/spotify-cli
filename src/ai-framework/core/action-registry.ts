@@ -1,4 +1,4 @@
-import type { CoreTool } from "ai";
+import type { Tool } from "ai";
 import type {
 	ActionCategory,
 	ActionDefinition,
@@ -99,8 +99,8 @@ export class ActionRegistry implements IActionRegistry {
 	/**
 	 * Get all tools in AI SDK format for use with generateText/streamText
 	 */
-	getTools(): Record<string, CoreTool> {
-		const tools: Record<string, CoreTool> = {};
+	getTools(): Record<string, Tool> {
+		const tools: Record<string, Tool> = {};
 
 		for (const [name, action] of this.actions) {
 			tools[name] = action.tool;
@@ -112,8 +112,8 @@ export class ActionRegistry implements IActionRegistry {
 	/**
 	 * Get tools filtered by category
 	 */
-	getToolsByCategory(category: ActionCategory): Record<string, CoreTool> {
-		const tools: Record<string, CoreTool> = {};
+	getToolsByCategory(category: ActionCategory): Record<string, Tool> {
+		const tools: Record<string, Tool> = {};
 		const actions = this.getByCategory(category);
 
 		for (const action of actions) {
@@ -126,10 +126,8 @@ export class ActionRegistry implements IActionRegistry {
 	/**
 	 * Get tools filtered by permissions
 	 */
-	getToolsWithPermissions(
-		requiredPermissions: string[],
-	): Record<string, CoreTool> {
-		const tools: Record<string, CoreTool> = {};
+	getToolsWithPermissions(requiredPermissions: string[]): Record<string, Tool> {
+		const tools: Record<string, Tool> = {};
 
 		for (const [name, action] of this.actions) {
 			// If action has no permissions requirement, include it

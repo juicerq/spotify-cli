@@ -1,3 +1,4 @@
+import { tool } from "ai";
 import { z } from "zod";
 import {
 	AISDKConfig,
@@ -5,7 +6,6 @@ import {
 	actionRegistry,
 	createConfigFromEnv,
 	generateText,
-	tool,
 } from "../index.js";
 
 /**

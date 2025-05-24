@@ -1,4 +1,4 @@
-import type { CoreTool } from "ai";
+import type { Tool } from "ai";
 import { z } from "zod";
 
 // Base types for the AI framework
@@ -69,7 +69,7 @@ export interface ActionDefinition {
 	name: string;
 	description: string;
 	category: ActionCategory;
-	tool: CoreTool;
+	tool: Tool;
 	permissions?: string[];
 	rateLimit?: {
 		maxCalls: number;
@@ -90,7 +90,7 @@ export interface ActionRegistry {
 	get(name: string): ActionDefinition | undefined;
 	getByCategory(category: ActionCategory): ActionDefinition[];
 	getAll(): ActionDefinition[];
-	getTools(): Record<string, CoreTool>;
+	getTools(): Record<string, Tool>;
 }
 
 // Execution types
